@@ -6,6 +6,7 @@ local actual_print = print
 local real_tables = {}
 local sniffer = {}
 local f_over = {}
+locsal mutes = {}
 
 local function v(t)
 	for i, v in ipairs(t) do
@@ -13,9 +14,14 @@ local function v(t)
 		if typ == "function" then
 			t[i] = sniffer.functionproxy(v)
 		elseif typ == "table" or typ == "userdata" then
-			t[i] = sniffer.tableproxy(v)
+			t[i] = sniffer.tableproxy(v) --changed this to correctly wrap proxies to match their specified type, this may overcome the table.insert problem
 		end
 	end
+end
+
+local function output(SnifferCallType, tab, fName, ...)
+	if mutes[fName] then return end
+	actual_print(SnifferCallType, tab, fName, ...)
 end
 
 function sniffer.functionproxy(func, tab, actualName) --if we have the actual name of the function, we use that, otherwise the function name will just be 'Function'
@@ -36,7 +42,7 @@ function sniffer.functionproxy(func, tab, actualName) --if we have the actual na
 			fOutput = "function: " .. actualName
 		end
 
-		actual_print("[Sniffer call]:", tab, fOutput, ...)
+		output("[Sniffer call]:", tab, fOutput, ...)
 		local toVer
 		if f_over[fOutput] then
 			toVer = table.pack(f_over[fOutput](table.unpack(args)))
@@ -54,40 +60,45 @@ function sniffer.tableproxy(tab)
 	if real_tables[tab] then
 		tab = real_tables[tab]
 	end
+	local o
+	if type(tab) == "userdata" then
+		o = newproxy(true) --we now want O to operate as a userdata here, probably doesn't matter but is useful when creating wrappers
+	else
+		o = setmetatable({}, {})
+	end
 	
-	local o = setmetatable({}, {
-		__index = function(self, k)
-			local index = tab[k]
-			local typ = type(index) --type, not typeof since handling roblox instances can be a right pain otherwise
-			if typ == "function" then
-				--create function wrapper, this is because we need to check the returns of the function to make sure no tables, functions or userdatas slip past
-				return sniffer.functionproxy(index, self, k)
+	local o_mt = getmetatable(o)
+	o_mt.__index = function(self, k)
+		local index = tab[k]
+		local typ = type(index) --type, not typeof since handling roblox instances can be a right pain otherwise
+		if typ == "function" then
+			--create function wrapper, this is because we need to check the returns of the function to make sure no tables, functions or userdatas slip past
+			return sniffer.functionproxy(index, self, k)
+		else
+			output("[Sniffer index]:", self, k)
+			if typ == "table" or typ == "userdata" then
+				--userdatas and tables are quite similar, so we'll use the same proxy for them
+				return sniffer.tableproxy(index)
 			else
-				print("[Sniffer index]:", self, k)
-				if typ == "table" or typ == "userdata" then
-					--userdatas and tables are quite similar, so we'll use the same proxy for them
-					return sniffer.tableproxy(index)
-				else
-					--just return the object since we cant proxy them
-					return index
-				end
-			end
-		end,
-
-		__newindex = function(self, k, v) --new declarations
-			print("[Sniffer newindex]:", self, k, v)
-			tab[k] = v
-		end,
-
-		__metatable = "The metatable is locked",
-		__tostring = function()
-			if tab == _ENV then
-				return "_ENV" --i think returning _ENV instead of some random hex code is better ux, this is the only place where this'll happen
-			else
-				return tostring(tab)
+				--just return the object since we cant proxy them
+				return index
 			end
 		end
-	})
+	end
+
+	o_mt.__newindex = function(self, k, v) --new declarations
+		output("[Sniffer newindex]:", self, k, v)
+		tab[k] = v
+	end
+
+	o_mt.__metatable = "The metatable is locked",
+	o_mt.__tostring = function()
+		if tab == _ENV then
+			return "_ENV" --i think returning _ENV instead of some random hex code is better ux, this is the only place where this'll happen
+		else
+			return tostring(tab)
+		end
+	end
 
 	real_tables[o] = tab
 	return o
@@ -97,6 +108,10 @@ sniffer._ENV = sniffer.tableproxy(_ENV)
 
 function sniffer.setFunctionOverride(name, f)
 	f_over[name] = f
+end
+
+function sniffer.mute(name)
+	mutes[name] = true
 end
 
 return function(fenvOverrides) --for fenv overriding, will not be immune from proxying however
