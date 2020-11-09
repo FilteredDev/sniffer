@@ -32,6 +32,12 @@ A reference to the environment wrapped in a proxy table.
 ### Sniffer.functionproxy(f)
 Creates a function that will proxy wrap any returns from the function
 
+### Sniffer.mute(name)
+Allows you to mute an output. Example: datatype: name
+```lua
+Sniffer.mute("function: sub") --this mutes any call to sub
+```
+
 ### Sniffer.setFunctionOverride(name, f)
 Allows you to overwrite a function's behaviour. This must follow the format "function: name" and the function must be tracked with a name.
 ```lua
@@ -42,3 +48,7 @@ end)
 
 ### Sniffer.tableproxy(table)
 Creates a table proxy, accepts both ``table`` and ``userdata``
+
+# Known Issues
+
+``table.insert`` has wack behaviour.
