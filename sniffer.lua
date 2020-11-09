@@ -6,7 +6,7 @@ local actual_print = print
 local real_tables = {}
 local sniffer = {}
 local f_over = {}
-locsal mutes = {}
+local mutes = {}
 
 local function v(t)
 	for i, v in ipairs(t) do
@@ -66,7 +66,7 @@ function sniffer.tableproxy(tab)
 	else
 		o = setmetatable({}, {})
 	end
-	
+
 	local o_mt = getmetatable(o)
 	o_mt.__index = function(self, k)
 		local index = tab[k]
@@ -91,7 +91,7 @@ function sniffer.tableproxy(tab)
 		tab[k] = v
 	end
 
-	o_mt.__metatable = "The metatable is locked",
+	o_mt.__metatable = "The metatable is locked"
 	o_mt.__tostring = function()
 		if tab == _ENV then
 			return "_ENV" --i think returning _ENV instead of some random hex code is better ux, this is the only place where this'll happen
