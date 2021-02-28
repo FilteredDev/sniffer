@@ -1,3 +1,5 @@
+This project has been discontinued, you can continue to use it but I wont provide support for it.
+
 # sniffer.lua
 ### Proxy Tables made easy.
 
